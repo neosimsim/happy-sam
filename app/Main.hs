@@ -2,7 +2,7 @@ module Main
   ( main
   ) where
 
-import           Lib
+import           Sheila.Parser
 
 main :: IO ()
-main = putStrLn msg
+main = getContents >>= return . parseFoo . lexer >>= mapM_ print

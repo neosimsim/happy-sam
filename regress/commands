@@ -1,0 +1,21 @@
+1a/ Hallo Welt /
+1i/ Hallo Welt /
+a/ Dot Address /
+123a
+Text
+Block
+.
+q
+1{
+    1a/ Hallo Welt /
+    3{
+        2i/hallo/
+    }
+    1i/ Hallo Welt /
+}
+56i.different separator.
+56i.different separator till linebreak
+
+a
+/asd/
+.

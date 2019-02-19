@@ -4,9 +4,11 @@ module Sheila.Parser (parseFoo, lexer) where
 import Data.Char
 }
 
-%name parseFoo
+%partial parseFoo
 %tokentype { Token }
 %error { parseError }
+%monad { P } { thenP } { returnP }
+%lexer { lexer } { TokenEOF }
 
 %token
       'a'     { TokenAdd }
@@ -19,21 +21,18 @@ import Data.Char
 
 %%
 
-Cmds : Cmd Cmds { $1 : $2 }
-     | Cmd      { [$1] }
-
 Cmd   : addr 'a' text     { AddCmd $1 $3 }
       | addr 'i' text     { InsertCmd $1 $3 }
       | addr '{' Cmds '}' { ComposedCmd $1 $3 }
       | 'q'               { QuitCmd }
 
-addr :         { DotAddress }
-     | address { $1 }
+Cmds : Cmds Cmd { $2 : $1 }
+     | Cmd      { [$1] }
+
+addr : {- empty -} { DotAddress }
+     | address     { $1 }
 
 {
-parseError :: [Token] -> a
-parseError _ = error "Parse error"
-
 data Cmd
   = AddCmd Address
            String
@@ -59,39 +58,57 @@ data Token
   | TokenInsert
   | TokenStartComposition
   | TokenEndComposition
+  | TokenEOF
   | TokenText String
   | TokenAddress Address
   deriving (Show)
 
-lexer :: String -> [Token]
-lexer [] = []
-lexer input@(c:cs)
-  | isSpace c = lexer cs
-  | isNumber c = lexAddress input
-lexer ('a':cs) = TokenAdd : lexText cs
-lexer ('i':cs) = TokenInsert : lexText cs
-lexer ('q':cs) = TokenQuit : lexer cs
-lexer ('{':cs) = TokenStartComposition : lexer cs
-lexer ('}':cs) = TokenEndComposition : lexer cs
-lexer s = error $ "cant parse: " ++ show s
+type P a = String -> Either String a
 
-lexAddress :: String -> [Token]
-lexAddress cs =
+thenP :: P a -> (a -> P b) -> P b
+m `thenP` k = \s ->
+   case m s of
+       Right x -> k x s
+       Left err -> Left err
+
+returnP :: a -> P a
+returnP a = \s -> Right a
+
+parseError :: Token -> P a
+parseError t s = Left $ "Parse error: " ++ show t ++ show s
+
+lexer :: (Token -> P a) -> P a
+lexer cont s = case s of
+  [] -> cont TokenEOF []
+  ('\n':cs) -> case readTextBlock cs
+    of (text, rest) -> cont (TokenText text) rest
+  input@(c:cs)
+    | isSpace c -> lexer cont cs
+    | isNumber c -> lexAddress cont input
+    | not (isAlpha c) -> lexTextLine c cont cs
+  ('a':cs) -> cont TokenAdd cs
+  ('i':cs) -> cont TokenInsert cs
+  ('q':cs) -> cont TokenQuit cs
+  ('{':cs) -> cont TokenStartComposition cs
+  ('}':cs) -> cont TokenEndComposition cs
+
+lexAddress :: (Token -> P a) -> P a
+lexAddress cont cs =
   case span isNumber cs of
-    (num, rest) -> TokenAddress (LineAddress $ read num) : lexer rest
+    (num, rest) -> cont (TokenAddress (LineAddress $ read num)) rest
 
-lexText :: String -> [Token]
-lexText (c:cs)
+lexText :: (Token -> P a) -> P a
+lexText cont (c:cs)
   | c == '\n' =  case readTextBlock cs
-    of (text, rest) -> TokenText text : lexer rest
-  | isSpace c = lexText cs
+    of (text, rest) -> cont (TokenText text) rest
+  | isSpace c = lexText cont cs
   | isAlphaNum c = error "missing separator"
-  | otherwise = lexTextLine c cs
+  | otherwise = lexTextLine c cont cs
 
-lexTextLine :: Char -> String -> [Token]
-lexTextLine separator cs =
+lexTextLine :: Char -> (Token -> P a) -> P a
+lexTextLine separator cont cs =
   case span (\s -> s /= separator && s /= '\n') cs of
-    (text, rest) -> TokenText text : lexer (tail rest)
+    (text, rest) -> cont (TokenText text) (tail rest)
 
 readTextBlock :: String -> (String, String)
 readTextBlock cs =

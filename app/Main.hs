@@ -5,4 +5,4 @@ module Main
 import           Sheila.Parser
 
 main :: IO ()
-main = getContents >>= return . parseFoo . lexer >>= mapM_ print
+main = getContents >>= print . parseFoo

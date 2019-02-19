@@ -21,7 +21,9 @@ import Data.Char
 
 %%
 
-Cmd   : addr 'a' text     { AddCmd $1 $3 }
+Cmd   : {- empty -}       { PrintCmd DotAddress }
+      | addr              { PrintCmd $1 }
+      | addr 'a' text     { AddCmd $1 $3 }
       | addr 'i' text     { InsertCmd $1 $3 }
       | addr '{' Cmds '}' { ComposedCmd $1 $3 }
       | 'q'               { QuitCmd }
@@ -34,7 +36,8 @@ addr : {- empty -} { DotAddress }
 
 {
 data Cmd
-  = AddCmd Address
+  = PrintCmd Address
+  | AddCmd Address
            String
   | InsertCmd Address
               String

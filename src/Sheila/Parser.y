@@ -25,14 +25,14 @@ import           Data.Char
 
 %%
 
-Cmd   : address '\n'         { PrintCmd $1 }
-      | address 'a' text     { AddCmd $1 $3 }
-      | address 'i' text     { InsertCmd $1 $3 }
-      | address 'g' text Cmd { InsertCmd $1 $3 }
-      | address '{' Cmds '}' { ComposedCmd $1 (reverse $3) }
-      | 'q'                  { QuitCmd }
+Cmd   : address '\n'                   { PrintCmd $1 }
+      | address 'a' text               { AddCmd $1 $3 }
+      | address 'i' text               { InsertCmd $1 $3 }
+      | address 'g' text Cmd           { InsertCmd $1 $3 }
+      | address '{' '\n' Cmds '\n' '}' { ComposedCmd $1 (reverse $4) }
+      | 'q'                            { QuitCmd }
 
-Cmds : Cmds Cmd { $2 : $1 }
+Cmds : Cmds '\n' Cmd { $3 : $1 }
      | Cmd      { [$1] }
 
 address : {- empty -} { DotAddress }

@@ -118,7 +118,9 @@ lexAddress cont cs _ _ =
 lexTextLine :: Char -> (Token -> P a) -> P a
 lexTextLine separator cont cs _ _ =
   case span (\s -> s /= separator && s /= '\n') cs of
-    (text, rest) -> cont (TokenText text) (tail rest) CommandMode (tail rest)
+    (text, rest) -> case rest of
+      ('\n':_) -> cont (TokenText text) rest CommandMode rest
+      (_:r) -> cont (TokenText text) r CommandMode r
 
 readTextBlock :: String -> (String, String)
 readTextBlock cs =

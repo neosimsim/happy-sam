@@ -58,3 +58,21 @@ main =
       it "parses text block" $
         parseCommand "2i\ntext\nB.L.O.C.K\n.\nrest" `shouldBe`
         Right (InsertCmd (LineAddress 2) "text\nB.L.O.C.K\n", "rest")
+    describe "composition" $
+      it "parses nested compositions" $
+      parseCommand
+        "1{\n    1a/ Hallo Welt /\n    3{\n        2i/hallo/\n        a\ncomposed\ntext\nblock\n.\n    }\n    q\n\n    1i/ Hallo Welt /\n}\nrest" `shouldBe`
+      Right
+        ( ComposedCmd
+            (LineAddress 1)
+            [ AddCmd (LineAddress 1) " Hallo Welt "
+            , ComposedCmd
+                (LineAddress 3)
+                [ InsertCmd (LineAddress 2) "hallo"
+                , AddCmd DotAddress "composed\ntext\nblock\n"
+                ]
+            , QuitCmd
+            , PrintCmd DotAddress
+            , InsertCmd (LineAddress 1) " Hallo Welt "
+            ]
+        , "rest")

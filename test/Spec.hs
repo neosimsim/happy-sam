@@ -2,15 +2,16 @@ module Main
   ( main
   ) where
 
-import           Control.Monad
-import           System.Exit
-import           Test.QuickCheck
-
-prop_true :: a -> Bool
-prop_true _ = True
+import           Sheila
+import           Test.Hspec
 
 main :: IO ()
-main = do
-  putStrLn "Hello, Haskell!"
-  result <- quickCheckResult (prop_true :: Integer -> Bool)
-  unless (isSuccess result) exitFailure
+main =
+  hspec $
+  describe "Sheia.parseCommand" $ do
+    it "allows add with address" $
+      parseCommand "101a/add text/" `shouldBe`
+      Right (AddCmd (LineAddress 101) "add text", "")
+    it "allows add with default dot address" $
+      parseCommand "a/add text/" `shouldBe`
+      Right (AddCmd DotAddress "add text", "")

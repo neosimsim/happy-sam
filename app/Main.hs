@@ -2,7 +2,7 @@ module Main
   ( main
   ) where
 
-import           Sheila.Parser
+import           Sheila
 
 main :: IO ()
 main = getContents >>= parseAndPrint

@@ -4,6 +4,7 @@ module Sheila.Parser
   ) where
 
 import           Data.Char
+import           Sheila.Types
 }
 
 %name parse
@@ -39,25 +40,6 @@ address : {- empty -} { DotAddress }
         | addr        { $1 }
 
 {
-data Cmd
-  = PrintCmd Address
-  | AddCmd Address
-           String
-  | InsertCmd Address
-              String
-  | QuitCmd
-  | ComposedCmd Address
-                [Cmd]
-  deriving (Show)
-
-data Address
-  = DotAddress
-  | RegexAddress String
-  | OffsetAddress Int
-  | LineAddress Int
-  | ComposedAddress Address
-                    Address
-  deriving (Show)
 
 data Token
   = TokenAdd

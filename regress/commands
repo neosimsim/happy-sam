@@ -1,21 +1,32 @@
-1a/ Hallo Welt /
-1i/ Hallo Welt /
-a/ Dot Address /
+q
 123a
 Text
 Block
 .
-q
+a/ Dot Address /
 1{
     1a/ Hallo Welt /
     3{
         2i/hallo/
+        a
+composed
+text
+block
+.
     }
+    q
     1i/ Hallo Welt /
 }
+q
+1a / Hallo Welt /
+101
+
+q
+1i/ Hallo Welt /
 56i.different separator.
 56i.different separator till linebreak
 
+a/ Dot Address /
 a
 /asd/
 .

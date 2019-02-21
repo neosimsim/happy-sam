@@ -49,9 +49,10 @@ Cmd   : address                        { PrintCmd $1 }
 Cmds : Cmds '\n' Cmd { $3 : $1 }
      | Cmd           { [$1] }
 
-address: {- empty -}        { DotAddress }
-       | '.'                { DotAddress }
-       | composedAddress    { $1 }
+address: {- empty -}      { DotAddress }
+       | '.'              { DotAddress }
+       | composedAddress  { $1 }
+       | '"' text address { FileAddress $2 $3 }
 
 composedAddress: simpleAddress                       { $1 }
                | composedAddress simpleAddress       { PlusAddress $1 $2 }
@@ -77,7 +78,6 @@ simpleAddress: number           { if $1 == 0 then BeginAddress else LineAddress 
              | '/' text         { RegexpAddress $2 }
              | '?' text         { MinusAddress DotAddress (RegexpAddress $2) }
              | '$'              { EndAddress }
-             | '"' text address { FileAddress $2 $3 }
 
 {
 relRangeAddr r1 r2 = RangeAddress r1 (PlusAddress r1 r2)

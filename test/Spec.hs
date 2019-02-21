@@ -181,7 +181,7 @@ main =
       it "parses with address" $
         parseCommand "101a/add text/\nrest" `shouldBe`
         Right (AddCmd (LineAddress 101) "add text", "rest")
-      it "parses address" $
+      it "parses without address" $
         parseCommand "a/add text/\nrest" `shouldBe`
         Right (AddCmd DotAddress "add text", "rest")
       it "parses text block" $
@@ -191,7 +191,7 @@ main =
       it "parses with address" $
         parseCommand "101i/add text/\nrest" `shouldBe`
         Right (InsertCmd (LineAddress 101) "add text", "rest")
-      it "parses address" $
+      it "parses without address" $
         parseCommand "i/add text/\nrest" `shouldBe`
         Right (InsertCmd DotAddress "add text", "rest")
       it "parses text block" $

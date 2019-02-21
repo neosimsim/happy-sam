@@ -26,8 +26,16 @@ import           Sheila.Types
       '/'  { TokenRegexpSeparator }
       '?'  { TokenReverseRegexpSeparator }
       '.'  { TokenDot }
+      '+'  { TokenPlus }
+      '-'  { TokenMinute }
+      ','  { TokenComma }
+      ';'  { TokenSemicolon }
+      '$'  { TokenEnd }
       text { TokenText $$ }
       number { TokenNumber $$ }
+
+%left ',' ';'
+%left '+' '-'
 
 %%
 
@@ -39,22 +47,51 @@ Cmd   : address                        { PrintCmd $1 }
       | 'q'                            { QuitCmd }
 
 Cmds : Cmds '\n' Cmd { $3 : $1 }
-     | Cmd      { [$1] }
+     | Cmd           { [$1] }
 
-address : {- empty -}      { DotAddress }
-        | '.'              { DotAddress }
-        | number           { if $1 == 0 then BeginAddress else LineAddress $1 }
-        | '#' number       { OffsetAddress $2 }
-        | '/' text         { RegexpAddress $2 }
-        | '?' text         { MinusAddress DotAddress (RegexpAddress $2) }
-        | '"' text address { FileAddress $2 $3 }
+address: {- empty -}        { DotAddress }
+       | '.'                { DotAddress }
+       | composedAddress    { $1 }
+
+composedAddress: simpleAddress                       { $1 }
+               | composedAddress simpleAddress       { PlusAddress $1 $2 }
+               | composedAddress '+' composedAddress { PlusAddress $1 $3 }
+               | composedAddress '+'                 { PlusAddress $1 (LineAddress 1) }
+               |                 '+' composedAddress { PlusAddress DotAddress $2 }
+               |                 '+'                 { PlusAddress DotAddress (LineAddress 1) }
+               | composedAddress '-' composedAddress { MinusAddress $1 $3 }
+               | composedAddress '-'                 { MinusAddress $1 (LineAddress 1) }
+               |                 '-' composedAddress { MinusAddress DotAddress $2 }
+               |                 '-'                 { MinusAddress DotAddress (LineAddress 1) }
+               | composedAddress ',' composedAddress { RangeAddress $1 $3 }
+               |                 ',' composedAddress { RangeAddress BeginAddress $2 }
+               | composedAddress ','                 { RangeAddress $1 EndAddress }
+               |                 ','                 { RangeAddress BeginAddress EndAddress }
+               | composedAddress ';' composedAddress { relRangeAddr $1 $3 }
+               |                 ';' composedAddress { relRangeAddr BeginAddress $2 }
+               | composedAddress ';'                 { relRangeAddr $1 EndAddress }
+               |                 ';'                 { relRangeAddr BeginAddress EndAddress }
+
+simpleAddress: number           { if $1 == 0 then BeginAddress else LineAddress $1 }
+             | '#' number       { OffsetAddress $2 }
+             | '/' text         { RegexpAddress $2 }
+             | '?' text         { MinusAddress DotAddress (RegexpAddress $2) }
+             | '$'              { EndAddress }
+             | '"' text address { FileAddress $2 $3 }
 
 {
+relRangeAddr r1 r2 = RangeAddress r1 (PlusAddress r1 r2)
+
 data Token
   = TokenAdd
   | TokenQuit
   | TokenInsert
+  | TokenEnd
   | TokenDot
+  | TokenPlus
+  | TokenMinute
+  | TokenComma
+  | TokenSemicolon
   | TokenStartComposition
   | TokenEndComposition
   | TokenNewLine
@@ -87,7 +124,7 @@ parseError t s m r _ = Left $ "Parse error: string: " ++ show s ++ ", token: " +
 lexer :: (Token -> P a) -> P a
 lexer cont s CommandMode r = case s of
   [] -> cont TokenEOF [] CommandMode r
-  ('\n':cs) -> \level -> case level of
+  ('\n':cs) -> \level -> case level of -- EOF unless we're nested
     0 -> cont TokenEOF cs CommandMode cs level
     otherwise -> cont TokenNewLine cs CommandMode cs level
   ('a':cs) -> cont TokenAdd cs TextMode cs
@@ -100,6 +137,11 @@ lexer cont s CommandMode r = case s of
   ('"':cs) -> cont TokenFileAddressSeparator s TextMode s
   ('/':cs) -> cont TokenRegexpSeparator s TextMode s
   ('?':cs) -> cont TokenReverseRegexpSeparator s TextMode s
+  ('+':cs) -> cont TokenPlus cs CommandMode cs
+  ('-':cs) -> cont TokenMinute cs CommandMode cs
+  (',':cs) -> cont TokenComma cs CommandMode cs
+  (';':cs) -> cont TokenSemicolon cs CommandMode cs
+  ('$':cs) -> cont TokenEnd cs CommandMode cs
   input@(c:cs)
     | isSpace c -> lexer cont cs CommandMode cs
     | isNumber c -> lexAddress cont input CommandMode input

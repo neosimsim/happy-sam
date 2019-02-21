@@ -20,6 +20,7 @@ data Address
   | OffsetAddress Int
   | LineAddress Int
   | BeginAddress
+  | EndAddress
   | MarkedAddress
   | FileAddress String
                 Address

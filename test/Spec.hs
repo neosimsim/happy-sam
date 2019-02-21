@@ -26,6 +26,8 @@ main =
         Right (PrintCmd (OffsetAddress 123), "rest")
       it "parses 0 address" $
         parseCommand "0\nrest" `shouldBe` Right (PrintCmd BeginAddress, "rest")
+      it "parses $ address" $
+        parseCommand "$\nrest" `shouldBe` Right (PrintCmd EndAddress, "rest")
       it "parses dot address" $
         parseCommand ".\nrest" `shouldBe` Right (PrintCmd DotAddress, "rest")
       it "parses regexp address" $
@@ -38,6 +40,135 @@ main =
       it "parses file address" $
         parseCommand "\"regexp\"5\nrest" `shouldBe`
         Right (PrintCmd (FileAddress "regexp" (LineAddress 5)), "rest")
+    describe "addresse composition" $ do
+      it "parses address translation as default composition" $
+        parseCommand "#5/regexp/2\nrest" `shouldBe`
+        Right
+          ( PrintCmd
+              (PlusAddress
+                 (PlusAddress (OffsetAddress 5) (RegexpAddress "regexp"))
+                 (LineAddress 2))
+          , "rest")
+      it "parses address translation" $
+        parseCommand "/regexp/+2\nrest" `shouldBe`
+        Right
+          ( PrintCmd (PlusAddress (RegexpAddress "regexp") (LineAddress 2))
+          , "rest")
+      it "parses reverse address translation" $
+        parseCommand "/regexp/-2\nrest" `shouldBe`
+        Right
+          ( PrintCmd (MinusAddress (RegexpAddress "regexp") (LineAddress 2))
+          , "rest")
+      it "parses addr+ as addr+1" $
+        parseCommand "/regexp/+\nrest" `shouldBe`
+        Right
+          ( PrintCmd (PlusAddress (RegexpAddress "regexp") (LineAddress 1))
+          , "rest")
+      it "parses addr- as addr-1" $
+        parseCommand "/regexp/-\nrest" `shouldBe`
+        Right
+          ( PrintCmd (MinusAddress (RegexpAddress "regexp") (LineAddress 1))
+          , "rest")
+      it "parses +addr as .+addr" $
+        parseCommand "+/regexp/\nrest" `shouldBe`
+        Right
+          (PrintCmd (PlusAddress DotAddress (RegexpAddress "regexp")), "rest")
+      it "parses -addr as .-addr" $
+        parseCommand "-/regexp/\nrest" `shouldBe`
+        Right
+          (PrintCmd (MinusAddress DotAddress (RegexpAddress "regexp")), "rest")
+      it "parses + as .+1" $
+        parseCommand "+\nrest" `shouldBe`
+        Right (PrintCmd (PlusAddress DotAddress (LineAddress 1)), "rest")
+      it "parses - as .-1" $
+        parseCommand "-\nrest" `shouldBe`
+        Right (PrintCmd (MinusAddress DotAddress (LineAddress 1)), "rest")
+      it "parses address ranges" $
+        parseCommand "/regexp1/,/regexp2/\nrest" `shouldBe`
+        Right
+          ( PrintCmd
+              (RangeAddress (RegexpAddress "regexp1") (RegexpAddress "regexp2"))
+          , "rest")
+      it "parses relative address ranges" $
+        parseCommand "/regexp1/;/regexp2/\nrest" `shouldBe`
+        Right
+          ( PrintCmd
+              (RangeAddress
+                 (RegexpAddress "regexp1")
+                 (PlusAddress
+                    (RegexpAddress "regexp1")
+                    (RegexpAddress "regexp2")))
+          , "rest")
+      it "parses translation before range: ,+3 (precedence rule)" $
+        parseCommand "/regexp1/,/regexp2/+3\nrest" `shouldBe`
+        Right
+          ( PrintCmd
+              (RangeAddress
+                 (RegexpAddress "regexp1")
+                 (PlusAddress (RegexpAddress "regexp2") (LineAddress 3)))
+          , "rest")
+      it "parses translation before range: ;+3 (precedence rule)" $
+        parseCommand "/regexp1/;/regexp2/+3\nrest" `shouldBe`
+        Right
+          ( PrintCmd
+              (RangeAddress
+                 (RegexpAddress "regexp1")
+                 (PlusAddress
+                    (RegexpAddress "regexp1")
+                    (PlusAddress (RegexpAddress "regexp2") (LineAddress 3))))
+          , "rest")
+      it "parses translation before range: +3, (precedence rule)" $
+        parseCommand "/regexp1/+3,/regexp2/\nrest" `shouldBe`
+        Right
+          ( PrintCmd
+              (RangeAddress
+                 (PlusAddress (RegexpAddress "regexp1") (LineAddress 3))
+                 (RegexpAddress "regexp2"))
+          , "rest")
+      it "parses translation before range: +3; (precedence rule)" $
+        parseCommand "/regexp1/+3;/regexp2/\nrest" `shouldBe`
+        Right
+          ( PrintCmd
+              (RangeAddress
+                 (PlusAddress (RegexpAddress "regexp1") (LineAddress 3))
+                 (PlusAddress
+                    (PlusAddress (RegexpAddress "regexp1") (LineAddress 3))
+                    (RegexpAddress "regexp2")))
+          , "rest")
+      it "parses 0 as default range start" $
+        parseCommand ",/regexp2/\nrest" `shouldBe`
+        Right
+          ( PrintCmd (RangeAddress BeginAddress (RegexpAddress "regexp2"))
+          , "rest")
+      it "parses 0 as default relative range start" $
+        parseCommand ";/regexp2/\nrest" `shouldBe`
+        Right
+          ( PrintCmd
+              (RangeAddress
+                 BeginAddress
+                 (PlusAddress BeginAddress (RegexpAddress "regexp2")))
+          , "rest")
+      it "parses $ as default range start" $
+        parseCommand "/regexp2/,\nrest" `shouldBe`
+        Right
+          (PrintCmd (RangeAddress (RegexpAddress "regexp2") EndAddress), "rest")
+      it "parses $ as default relative range end" $
+        parseCommand "/regexp2/;\nrest" `shouldBe`
+        Right
+          ( PrintCmd
+              (RangeAddress
+                 (RegexpAddress "regexp2")
+                 (PlusAddress (RegexpAddress "regexp2") EndAddress))
+          , "rest")
+      it "parses ',' as whole buffer" $
+        parseCommand ",\nrest" `shouldBe`
+        Right (PrintCmd (RangeAddress BeginAddress EndAddress), "rest")
+      it "parses ';' as whole buffer" $
+        parseCommand ";\nrest" `shouldBe`
+        Right
+          ( PrintCmd
+              (RangeAddress BeginAddress (PlusAddress BeginAddress EndAddress))
+          , "rest")
     describe "adding" $ do
       it "parses with address" $
         parseCommand "101a/add text/\nrest" `shouldBe`

@@ -169,6 +169,14 @@ main =
           ( PrintCmd
               (RangeAddress BeginAddress (PlusAddress BeginAddress EndAddress))
           , "rest")
+      it "parses composed file addreses" $
+        parseCommand "\".*rc\"1/regexp/\nrest" `shouldBe`
+        Right
+          ( PrintCmd
+              (FileAddress
+                 ".*rc"
+                 (PlusAddress (LineAddress 1) (RegexpAddress "regexp")))
+          , "rest")
     describe "adding" $ do
       it "parses with address" $
         parseCommand "101a/add text/\nrest" `shouldBe`

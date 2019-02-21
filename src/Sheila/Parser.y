@@ -36,7 +36,7 @@ import           Sheila.Types
 
 %left ',' ';'
 %left '+' '-'
-
+%nonassoc '#' '?' '/' '"' '$' number
 %%
 
 Cmd   : address                        { PrintCmd $1 }

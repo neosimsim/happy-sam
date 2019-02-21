@@ -21,8 +21,13 @@ import           Sheila.Types
       '{'  { TokenStartComposition }
       '}'  { TokenEndComposition }
       '\n' { TokenNewLine }
+      '"'  { TokenFileAddressSeparator }
+      '#'  { TokenOffset }
+      '/'  { TokenRegexpSeparator }
+      '?'  { TokenReverseRegexpSeparator }
+      '.'  { TokenDot }
       text { TokenText $$ }
-      addr { TokenAddress $$ }
+      number { TokenNumber $$ }
 
 %%
 
@@ -36,24 +41,34 @@ Cmd   : address                        { PrintCmd $1 }
 Cmds : Cmds '\n' Cmd { $3 : $1 }
      | Cmd      { [$1] }
 
-address : {- empty -} { DotAddress }
-        | addr        { $1 }
+address : {- empty -}      { DotAddress }
+        | '.'              { DotAddress }
+        | number           { if $1 == 0 then BeginAddress else LineAddress $1 }
+        | '#' number       { OffsetAddress $2 }
+        | '/' text         { RegexpAddress $2 }
+        | '?' text         { MinusAddress DotAddress (RegexpAddress $2) }
+        | '"' text address { FileAddress $2 $3 }
 
 {
-
 data Token
   = TokenAdd
   | TokenQuit
   | TokenInsert
+  | TokenDot
   | TokenStartComposition
   | TokenEndComposition
   | TokenNewLine
   | TokenEOF
   | TokenText String
   | TokenAddress Address
+  | TokenFileAddressSeparator
+  | TokenOffset
+  | TokenNumber Int
+  | TokenRegexpSeparator
+  | TokenReverseRegexpSeparator
   deriving (Show)
 
-data LexingMode = CommandMode | TextMode
+data LexingMode = CommandMode | TextMode deriving (Show)
 
 type P a = String -> LexingMode -> String -> Int -> Either String (a, String)
 
@@ -67,7 +82,7 @@ returnP :: a -> P a
 returnP a = \s _ r _ -> Right (a, r)
 
 parseError :: Token -> P a
-parseError t s _ r _ = Left $ "Parse error: " ++ show t ++ show r
+parseError t s m r _ = Left $ "Parse error: string: " ++ show s ++ ", token: " ++ show t ++ ", mode: " ++ show m ++ ", rest: " ++ show r
 
 lexer :: (Token -> P a) -> P a
 lexer cont s CommandMode r = case s of
@@ -80,6 +95,11 @@ lexer cont s CommandMode r = case s of
   ('q':cs) -> cont TokenQuit cs CommandMode cs
   ('{':cs) -> \level -> cont TokenStartComposition cs CommandMode cs (level+1)
   ('}':cs) -> \level -> cont TokenEndComposition cs CommandMode cs (level-1)
+  ('#':cs) -> cont TokenOffset cs CommandMode cs
+  ('.':cs) -> cont TokenDot cs CommandMode cs
+  ('"':cs) -> cont TokenFileAddressSeparator s TextMode s
+  ('/':cs) -> cont TokenRegexpSeparator s TextMode s
+  ('?':cs) -> cont TokenReverseRegexpSeparator s TextMode s
   input@(c:cs)
     | isSpace c -> lexer cont cs CommandMode cs
     | isNumber c -> lexAddress cont input CommandMode input
@@ -97,7 +117,7 @@ lexer cont s TextMode _ =
 lexAddress :: (Token -> P a) -> P a
 lexAddress cont cs _ _ =
   case span isNumber cs of
-    (num, rest) -> cont (TokenAddress (LineAddress $ read num)) rest CommandMode rest
+    (num, rest) -> cont (TokenNumber $ read num) rest CommandMode rest
 
 lexTextLine :: Char -> (Token -> P a) -> P a
 lexTextLine separator cont cs _ _ =

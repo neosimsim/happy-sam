@@ -16,9 +16,17 @@ data Cmd
 
 data Address
   = DotAddress
-  | RegexAddress String
+  | RegexpAddress String
   | OffsetAddress Int
   | LineAddress Int
-  | ComposedAddress Address
-                    Address
+  | BeginAddress
+  | MarkedAddress
+  | FileAddress String
+                Address
+  | PlusAddress Address
+                Address
+  | MinusAddress Address
+                 Address
+  | RangeAddress Address
+                 Address
   deriving (Show, Eq)

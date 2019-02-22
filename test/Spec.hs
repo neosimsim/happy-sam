@@ -37,6 +37,14 @@ main =
         parseCommand "?regexp?\nrest" `shouldBe`
         Right
           (PrintCmd (MinusAddress DotAddress (RegexpAddress "regexp")), "rest")
+      it "parses escaped regexp address" $
+        parseCommand "/\\e\\n\\/[\\/]/\nrest" `shouldBe`
+        Right (PrintCmd (RegexpAddress "\\e\n/[/]"), "rest")
+      it "parses escaped backwards regexp address" $
+        parseCommand "?\\e\\n\\?[\\?]?\nrest" `shouldBe`
+        Right
+          ( PrintCmd (MinusAddress DotAddress (RegexpAddress "\\e\n?[?]"))
+          , "rest")
       it "parses file address" $
         parseCommand "\"regexp\"5\nrest" `shouldBe`
         Right (PrintCmd (FileAddress "regexp" (LineAddress 5)), "rest")

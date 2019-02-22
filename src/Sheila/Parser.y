@@ -23,8 +23,8 @@ import           Sheila.Types
       '\n' { TokenNewLine }
       '"'  { TokenFileAddressSeparator }
       '#'  { TokenOffset }
-      '/'  { TokenRegexpSeparator }
-      '?'  { TokenReverseRegexpSeparator }
+      regexp  { TokenRegexp  $$ }
+      backwardsRegexp  { TokenBackwardsRegexp $$ }
       '.'  { TokenDot }
       '+'  { TokenPlus }
       '-'  { TokenMinute }
@@ -36,7 +36,7 @@ import           Sheila.Types
 
 %left ',' ';'
 %left '+' '-'
-%nonassoc '#' '?' '/' '"' '$' number
+%nonassoc '#' '"' '$' number regexp backwardsRegexp
 %%
 
 Cmd   : address                        { PrintCmd $1 }
@@ -75,8 +75,8 @@ composedAddress: simpleAddress                       { $1 }
 
 simpleAddress: number           { if $1 == 0 then BeginAddress else LineAddress $1 }
              | '#' number       { OffsetAddress $2 }
-             | '/' text         { RegexpAddress $2 }
-             | '?' text         { MinusAddress DotAddress (RegexpAddress $2) }
+             | regexp           { RegexpAddress $1 }
+             | backwardsRegexp  { MinusAddress DotAddress (RegexpAddress $1) }
              | '$'              { EndAddress }
 
 {
@@ -101,8 +101,8 @@ data Token
   | TokenFileAddressSeparator
   | TokenOffset
   | TokenNumber Int
-  | TokenRegexpSeparator
-  | TokenReverseRegexpSeparator
+  | TokenRegexp String
+  | TokenBackwardsRegexp String
   deriving (Show)
 
 data LexingMode = CommandMode | TextMode deriving (Show)
@@ -135,8 +135,8 @@ lexer cont s CommandMode r = case s of
   ('#':cs) -> cont TokenOffset cs CommandMode cs
   ('.':cs) -> cont TokenDot cs CommandMode cs
   ('"':cs) -> cont TokenFileAddressSeparator s TextMode s
-  ('/':cs) -> cont TokenRegexpSeparator s TextMode s
-  ('?':cs) -> cont TokenReverseRegexpSeparator s TextMode s
+  ('/':cs) -> lexRexexp '/' cont cs CommandMode cs
+  ('?':cs) -> lexBackwardsRexexp '?' cont cs CommandMode cs
   ('+':cs) -> cont TokenPlus cs CommandMode cs
   ('-':cs) -> cont TokenMinute cs CommandMode cs
   (',':cs) -> cont TokenComma cs CommandMode cs
@@ -161,12 +161,40 @@ lexAddress cont cs _ _ =
   case span isNumber cs of
     (num, rest) -> cont (TokenNumber $ read num) rest CommandMode rest
 
+lexRexexp :: Char -> (Token -> P a) -> P a
+lexRexexp separator cont cs mode _ = case unescape separator cs of
+  (exp, rest) -> cont (TokenRegexp exp) rest mode rest
+
+lexBackwardsRexexp :: Char -> (Token -> P a) -> P a
+lexBackwardsRexexp separator cont cs mode _ = case unescape separator cs of
+  (exp, rest) -> cont (TokenBackwardsRegexp exp) rest mode rest
+
+-- | parse text until separator or '\n'
+-- substitutes "\n" by '\n' and "\sep" by 'sep'
+unescape :: Char -> String -> (String, String)
+unescape _ [] = ([], [])
+unescape c (s:ss)
+  | s == '\n' = ([], s:ss)
+  | s == c = ([], ss)
+  | s == '\\' = escaped c ss
+  | otherwise = first (s:) (unescape c ss)
+
+escaped _ [] = ("/", [])
+escaped c (s:ss)
+  | s == '\\' = first ('\\':) (unescape c ss)
+  | s == 'n' = first ('\n':) (unescape c ss)
+  | s == c = first (c:) (unescape c ss)
+  | otherwise = first ('\\':) $ first (s:) (unescape c ss)
+
+first :: (a -> c) -> (a,b) -> (c,b)
+first f (a,b) = (f a, b)
+
 lexTextLine :: Char -> (Token -> P a) -> P a
-lexTextLine separator cont cs _ _ =
+lexTextLine separator cont cs mode _ =
   case span (\s -> s /= separator && s /= '\n') cs of
     (text, rest) -> case rest of
-      ('\n':_) -> cont (TokenText text) rest CommandMode rest
-      (_:r) -> cont (TokenText text) r CommandMode r
+      ('\n':_) -> cont (TokenText text) rest mode rest
+      (_:r) -> cont (TokenText text) r mode r
 
 readTextBlock :: String -> (String, String)
 readTextBlock cs =

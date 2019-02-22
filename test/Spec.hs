@@ -192,6 +192,9 @@ main =
       it "parses without address" $
         parseCommand "a/add text/\nrest" `shouldBe`
         Right (AddCmd DotAddress "add text", "rest")
+      it "parses escaped text lines" $
+        parseCommand "101a/\\\\n\\nadd\\/text/\nrest" `shouldBe`
+        Right (AddCmd (LineAddress 101) "\\n\nadd/text", "rest")
       it "parses text block" $
         parseCommand "2a\ntext\nB.L.O.C.K\n.\nrest" `shouldBe`
         Right (AddCmd (LineAddress 2) "text\nB.L.O.C.K\n", "rest")
@@ -202,6 +205,9 @@ main =
       it "parses without address" $
         parseCommand "i/add text/\nrest" `shouldBe`
         Right (InsertCmd DotAddress "add text", "rest")
+      it "parses escaped text lines" $
+        parseCommand "101i/\\\\n\\nadd\\/text/\nrest" `shouldBe`
+        Right (InsertCmd (LineAddress 101) "\\n\nadd/text", "rest")
       it "parses text block" $
         parseCommand "2i\ntext\nB.L.O.C.K\n.\nrest" `shouldBe`
         Right (InsertCmd (LineAddress 2) "text\nB.L.O.C.K\n", "rest")

@@ -190,11 +190,8 @@ first :: (a -> c) -> (a,b) -> (c,b)
 first f (a,b) = (f a, b)
 
 lexTextLine :: Char -> (Token -> P a) -> P a
-lexTextLine separator cont cs mode _ =
-  case span (\s -> s /= separator && s /= '\n') cs of
-    (text, rest) -> case rest of
-      ('\n':_) -> cont (TokenText text) rest mode rest
-      (_:r) -> cont (TokenText text) r mode r
+lexTextLine separator cont cs mode _ = case unescape separator cs of
+  (exp, rest) -> cont (TokenText exp) rest mode rest
 
 readTextBlock :: String -> (String, String)
 readTextBlock cs =

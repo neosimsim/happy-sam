@@ -19,7 +19,7 @@ data Address
   | RegexpAddress String
   | OffsetAddress Int
   | LineAddress Int
-  | BeginAddress
+  | ZeroAddress
   | EndAddress
   | MarkedAddress
   | FileAddress String

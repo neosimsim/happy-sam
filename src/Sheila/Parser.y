@@ -19,7 +19,7 @@ import           Sheila.Lexer
       'g'  { TokenAdd }
       'q'  { TokenQuit }
       'i'  { TokenInsert }
-      '{'  { TokenStartComposition }
+      '{'  { TokenZeroComposition }
       '}'  { TokenEndComposition }
       '\n' { TokenNewLine }
       '"'  { TokenFileAddressSeparator }
@@ -66,15 +66,15 @@ composedAddress: simpleAddress                       { $1 }
                |                 '-' composedAddress { MinusAddress DotAddress $2 }
                |                 '-'                 { MinusAddress DotAddress (LineAddress 1) }
                | composedAddress ',' composedAddress { RangeAddress $1 $3 }
-               |                 ',' composedAddress { RangeAddress BeginAddress $2 }
+               |                 ',' composedAddress { RangeAddress ZeroAddress $2 }
                | composedAddress ','                 { RangeAddress $1 EndAddress }
-               |                 ','                 { RangeAddress BeginAddress EndAddress }
+               |                 ','                 { RangeAddress ZeroAddress EndAddress }
                | composedAddress ';' composedAddress { relRangeAddr $1 $3 }
-               |                 ';' composedAddress { relRangeAddr BeginAddress $2 }
+               |                 ';' composedAddress { relRangeAddr ZeroAddress $2 }
                | composedAddress ';'                 { relRangeAddr $1 EndAddress }
-               |                 ';'                 { relRangeAddr BeginAddress EndAddress }
+               |                 ';'                 { relRangeAddr ZeroAddress EndAddress }
 
-simpleAddress: number           { if $1 == 0 then BeginAddress else LineAddress $1 }
+simpleAddress: number           { if $1 == 0 then ZeroAddress else LineAddress $1 }
              | '#' number       { OffsetAddress $2 }
              | regexp           { RegexpAddress $1 }
              | backwardsRegexp  { MinusAddress DotAddress (RegexpAddress $1) }
@@ -83,6 +83,8 @@ simpleAddress: number           { if $1 == 0 then BeginAddress else LineAddress 
 {
 relRangeAddr r1 r2 = RangeAddress r1 (PlusAddress r1 r2)
 
+-- | Parses the next command from the beginning of the string.
+-- Returs a touple of the parsed command and the unparsed rest of the string.
 parseCommand :: String -> Either String (Cmd, String)
 parseCommand s = parse s CommandMode s 0
 }

@@ -21,7 +21,7 @@ data Token
   | TokenMinute
   | TokenComma
   | TokenSemicolon
-  | TokenStartComposition
+  | TokenZeroComposition
   | TokenEndComposition
   | TokenNewLine
   | TokenEOF
@@ -72,7 +72,7 @@ lexer cont s CommandMode r =
     ('i':cs) -> cont TokenInsert cs TextMode cs
     ('q':cs) -> cont TokenQuit cs CommandMode cs
     ('{':cs) ->
-      \level -> cont TokenStartComposition cs CommandMode cs (level + 1)
+      \level -> cont TokenZeroComposition cs CommandMode cs (level + 1)
     ('}':cs) -> \level -> cont TokenEndComposition cs CommandMode cs (level - 1)
     ('#':cs) -> cont TokenOffset cs CommandMode cs
     ('.':cs) -> cont TokenDot cs CommandMode cs

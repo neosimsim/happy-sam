@@ -25,7 +25,7 @@ main =
         parseCommand "#123\nrest" `shouldBe`
         Right (PrintCmd (OffsetAddress 123), "rest")
       it "parses 0 address" $
-        parseCommand "0\nrest" `shouldBe` Right (PrintCmd BeginAddress, "rest")
+        parseCommand "0\nrest" `shouldBe` Right (PrintCmd ZeroAddress, "rest")
       it "parses $ address" $
         parseCommand "$\nrest" `shouldBe` Right (PrintCmd EndAddress, "rest")
       it "parses dot address" $
@@ -146,15 +146,15 @@ main =
       it "parses 0 as default range start" $
         parseCommand ",/regexp2/\nrest" `shouldBe`
         Right
-          ( PrintCmd (RangeAddress BeginAddress (RegexpAddress "regexp2"))
+          ( PrintCmd (RangeAddress ZeroAddress (RegexpAddress "regexp2"))
           , "rest")
       it "parses 0 as default relative range start" $
         parseCommand ";/regexp2/\nrest" `shouldBe`
         Right
           ( PrintCmd
               (RangeAddress
-                 BeginAddress
-                 (PlusAddress BeginAddress (RegexpAddress "regexp2")))
+                 ZeroAddress
+                 (PlusAddress ZeroAddress (RegexpAddress "regexp2")))
           , "rest")
       it "parses $ as default range start" $
         parseCommand "/regexp2/,\nrest" `shouldBe`
@@ -170,12 +170,12 @@ main =
           , "rest")
       it "parses ',' as whole buffer" $
         parseCommand ",\nrest" `shouldBe`
-        Right (PrintCmd (RangeAddress BeginAddress EndAddress), "rest")
+        Right (PrintCmd (RangeAddress ZeroAddress EndAddress), "rest")
       it "parses ';' as whole buffer" $
         parseCommand ";\nrest" `shouldBe`
         Right
           ( PrintCmd
-              (RangeAddress BeginAddress (PlusAddress BeginAddress EndAddress))
+              (RangeAddress ZeroAddress (PlusAddress ZeroAddress EndAddress))
           , "rest")
       it "parses composed file addreses" $
         parseCommand "\".*rc\"1/regexp/\nrest" `shouldBe`

@@ -15,12 +15,46 @@ import           Sheila.Lexer
 %lexer { lexer } { TokenEOF }
 
 %token
-      'a'  { TokenAdd }
-      'g'  { TokenAdd }
-      'q'  { TokenQuit }
-      'i'  { TokenInsert }
+      -- Text Commands
+      'a'  { TokenCmd "a" }
+      'c'  { TokenCmd "c" }
+      'i'  { TokenCmd "i" }
+      'd'  { TokenCmd "d" }
+      's'  { TokenCmd "s" }
+      'm'  { TokenCmd "m" }
+      't'  { TokenCmd "t" }
+      -- Display Command
+      'p'  { TokenCmd "p" }
+      '='  { TokenCmd "=" }
+      '=#' { TokenCmd "=#" }
+      -- File Commands
+      'b'  { TokenCmd "b" }
+      'B'  { TokenCmd "B" }
+      'n'  { TokenCmd "n" }
+      'D'  { TokenCmd "D" }
+      -- I/O Commands
+      'e'  { TokenCmd "e" }
+      'r'  { TokenCmd "r" }
+      'w'  { TokenCmd "w" }
+      'f'  { TokenCmd "f" }
+      '<'  { TokenCmd "<" }
+      '>'  { TokenCmd ">" }
+      '|'  { TokenCmd "|" }
+      '!'  { TokenCmd "!" }
+      "cd"  { TokenCmd "cd" }
+      -- Loops and Conditionals
+      'x'  { TokenCmd "x" }
+      'y'  { TokenCmd "y" }
+      'X'  { TokenCmd "X" }
+      'Y'  { TokenCmd "Y" }
+      'g'  { TokenCmd "g" }
+      'v'  { TokenCmd "v" }
       '{'  { TokenZeroComposition }
       '}'  { TokenEndComposition }
+      -- Misc
+      'q'  { TokenCmd "q" }
+      'k'  { TokenCmd "k" }
+      'u'  { TokenCmd "u" }
       '\n' { TokenNewLine }
       '"'  { TokenFileAddressSeparator }
       '#'  { TokenOffset }
@@ -34,24 +68,62 @@ import           Sheila.Lexer
       '$'  { TokenEnd }
       text { TokenText $$ }
       number { TokenNumber $$ }
+      substitution {TokenSubstitution $$ }
 
 %left ',' ';'
 %left '+' '-'
 %nonassoc '#' '"' '$' number regexp backwardsRegexp
 %%
 
-Cmd   : address                        { PrintCmd $1 }
-      | address 'a' text               { AddCmd $1 $3 }
-      | address 'i' text               { InsertCmd $1 $3 }
-      | address 'g' text Cmd           { InsertCmd $1 $3 }
-      | address '{' '\n' Cmds '\n' '}' { ComposedCmd $1 (reverse $4) }
-      | 'q'                            { QuitCmd }
+Cmd   : { Print (PlusAddress DotAddress (LineAddress 1)) }
+      | address                        { Print $1 }
+      | optionalAddress 'a' text               { Add $1 $3 }
+      | optionalAddress 'i' text               { Insert $1 $3 }
+      | optionalAddress 'c' text               { Change $1 $3 }
+      | optionalAddress 'd'                    { Delete $1 }
+      | optionalAddress 'k'                    { Mark $1 }
+      | 'u' number                     { Undo $2 }
+      | 'u'                            { Undo 1 }
+      | optionalAddress 's' substitution       { Substitute $1 (fst $3) (snd $3) }
+      | optionalAddress 'm' address            { Move $1 $3 }
+      | optionalAddress 't' address            { Copy $1 $3 }
+      | optionalAddress 'g' text Cmd           { RunIf $1 $3 $4 }
+      | optionalAddress 'v' text Cmd           { RunIfNot $1 $3 $4 }
+      | optionalAddress 'x' text Cmd           { LoopIf $1 $3 $4 }
+      | optionalAddress 'y' text Cmd           { LoopIfNot $1 $3 $4 }
+      | optionalAddress '{' '\n' Cmds '\n' '}' { Composed $1 (reverse $4) }
+      | 'e' restOfLine                 { Edit $2 }
+      | optionalAddress 'r' restOfLine         { Replace $1 $3 }
+      | address 'w' restOfLine         { Write $1 $3 } -- TODO DotAddress is not the default here
+      | 'w' restOfLine         { Write (RangeAddress ZeroAddress EndAddress) $2 } -- TODO DotAddress is not the default here
+      | 'f' word                       { SetFilename $2 }
+      | optionalAddress '<' restOfLine         { PipeIn $1 $3 }
+      | optionalAddress '>' restOfLine         { PipeOut $1 $3 }
+      | optionalAddress '|' restOfLine         { Pipe $1 $3 }
+      |  '!' restOfLine                { RunShell $2 }
+      |  "cd" restOfLine               { ChangeDir $2 }
+      | 'X' text Cmd                   { LoopIfFile $2 $3 }
+      | 'Y' text Cmd                   { LoopIfNotFile $2 $3 }
+      | 'q'                            { Quit }
+      | 'b' restOfLine                 { SetBuffer (words $2) } -- TODO should use @words@ here
+      | 'B' restOfLine                 { AddBuffer (words $2) }
+      | 'n'                            { PrintMenu }
+      | 'D' restOfLine                 { DeleteFiles (words $2) }
+      | optionalAddress 'p'                    { Print $1 }
+      | optionalAddress '='                    { PrintRange $1 }
+      | optionalAddress '=#'                   { PrintOffset $1 }
+
+restOfLine: text { $1 }
+
+word: text { $1 }
 
 Cmds : Cmds '\n' Cmd { $3 : $1 }
      | Cmd           { [$1] }
 
-address: {- empty -}      { DotAddress }
-       | '.'              { DotAddress }
+optionalAddress: {- empty -} { DotAddress }
+               | address     { $1 }
+
+address: '.'              { DotAddress }
        | composedAddress  { $1 }
        | '"' text address { FileAddress $2 $3 }
 

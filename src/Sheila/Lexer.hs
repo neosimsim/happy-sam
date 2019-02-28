@@ -12,9 +12,7 @@ import           Data.Char
 import           Sheila.Types
 
 data Token
-  = TokenAdd
-  | TokenQuit
-  | TokenInsert
+  = TokenCmd String
   | TokenEnd
   | TokenDot
   | TokenPlus
@@ -32,11 +30,15 @@ data Token
   | TokenNumber Int
   | TokenRegexp String
   | TokenBackwardsRegexp String
+  | TokenSubstitution (String, String)
   deriving (Show)
 
 data LexingMode
   = CommandMode
   | TextMode
+  | RegexMode -- ^ lex @/regexp/@, with @/@ is a non alpha numeric.
+  | StringMode -- ^ lex everything till end of line
+  | SubstituteMode -- ^ lex @/regexp/string/@
   deriving (Show)
 
 type P a = String -> LexingMode -> String -> Int -> Either String (a, String)
@@ -68,12 +70,48 @@ lexer cont s CommandMode r =
               of
           0 -> cont TokenEOF cs CommandMode cs level
           _ -> cont TokenNewLine cs CommandMode cs level
-    ('a':cs) -> cont TokenAdd cs TextMode cs
-    ('i':cs) -> cont TokenInsert cs TextMode cs
-    ('q':cs) -> cont TokenQuit cs CommandMode cs
+    -- Display Commands
+    ('p':cs) -> cont (TokenCmd "p") cs CommandMode cs
+    ('=':'#':cs) -> cont (TokenCmd "=#") cs CommandMode cs
+    ('=':cs) -> cont (TokenCmd "=") cs CommandMode cs
+    -- File Commands
+    ('b':cs) -> cont (TokenCmd "b") cs StringMode cs
+    ('B':cs) -> cont (TokenCmd "B") cs StringMode cs
+    ('n':cs) -> cont (TokenCmd "n") cs CommandMode cs
+    ('D':cs) -> cont (TokenCmd "D") cs StringMode cs
+    -- I/O Commands
+    ('e':cs) -> cont (TokenCmd "e") cs StringMode cs
+    ('r':cs) -> cont (TokenCmd "r") cs StringMode cs
+    ('w':cs) -> cont (TokenCmd "w") cs StringMode cs
+    ('f':cs) -> cont (TokenCmd "f") cs StringMode cs
+    ('<':cs) -> cont (TokenCmd "<") cs StringMode cs
+    ('>':cs) -> cont (TokenCmd ">") cs StringMode cs
+    ('|':cs) -> cont (TokenCmd "|") cs StringMode cs
+    ('!':cs) -> cont (TokenCmd "!") cs StringMode cs
+    ('c':'d':cs) -> cont (TokenCmd "cd") cs StringMode cs
+    -- Text Commands
+    ('a':cs) -> cont (TokenCmd "a") cs TextMode cs
+    ('c':cs) -> cont (TokenCmd "c") cs TextMode cs
+    ('i':cs) -> cont (TokenCmd "i") cs TextMode cs
+    ('d':cs) -> cont (TokenCmd "d") cs CommandMode cs
+    ('s':cs) -> cont (TokenCmd "s") cs SubstituteMode cs
+    ('m':cs) -> cont (TokenCmd "m") cs CommandMode cs
+    ('t':cs) -> cont (TokenCmd "t") cs CommandMode cs
+    -- Loop, Conditionals and Groups
+    ('x':cs) -> cont (TokenCmd "x") cs TextMode cs
+    ('y':cs) -> cont (TokenCmd "y") cs TextMode cs
+    ('X':cs) -> cont (TokenCmd "X") cs TextMode cs
+    ('Y':cs) -> cont (TokenCmd "Y") cs TextMode cs
+    ('g':cs) -> cont (TokenCmd "g") cs TextMode cs
+    ('v':cs) -> cont (TokenCmd "v") cs TextMode cs
     ('{':cs) ->
       \level -> cont TokenZeroComposition cs CommandMode cs (level + 1)
     ('}':cs) -> \level -> cont TokenEndComposition cs CommandMode cs (level - 1)
+    -- misc
+    ('q':cs) -> cont (TokenCmd "q") cs CommandMode cs
+    ('k':cs) -> cont (TokenCmd "k") cs CommandMode cs
+    ('u':cs) -> cont (TokenCmd "u") cs CommandMode cs
+    -- Addresses
     ('#':cs) -> cont TokenOffset cs CommandMode cs
     ('.':cs) -> cont TokenDot cs CommandMode cs
     ('"':_) -> cont TokenFileAddressSeparator s TextMode s
@@ -86,7 +124,7 @@ lexer cont s CommandMode r =
     ('$':cs) -> cont TokenEnd cs CommandMode cs
     input@(c:cs)
       | isSpace c -> lexer cont cs CommandMode cs
-      | isNumber c -> lexAddress cont input CommandMode input
+      | isNumber c -> lexNumber cont input CommandMode input
       | otherwise -> const . Left $ "invalid command line:\n" ++ s
 lexer cont s TextMode _ =
   case s of
@@ -98,9 +136,32 @@ lexer cont s TextMode _ =
       | not (isAlphaNum c) -> lexTextLine c cont cs CommandMode cs
       | otherwise -> const . Left $ "invalid text " ++ show s
     [] -> const $ Left "unexpected eof"
+lexer cont s RegexMode _ =
+  case s of
+    (c:cs)
+      | isSpace c -> lexer cont cs RegexMode cs
+      | not (isAlphaNum c) -> lexTextLine c cont cs CommandMode cs
+      | otherwise -> const . Left $ "invalid text " ++ show s
+    [] -> const $ Left "unexpected eof"
+lexer cont s StringMode _ =
+  case s of
+    (c:cs)
+      | c == '\n' -> cont (TokenText "") s CommandMode s
+      | isSpace c -> lexer cont cs StringMode cs
+      | otherwise ->
+        case span (/= '\n') s of
+          (line, rest) -> cont (TokenText line) rest CommandMode rest
+    [] -> const $ Left "unexpected eof"
+lexer cont s SubstituteMode _ =
+  case s of
+    (c:cs)
+      | isSpace c -> lexer cont cs SubstituteMode cs
+      | not (isAlphaNum c) -> lexTouple c cont cs CommandMode cs
+      | otherwise -> const . Left $ "invalid substitution " ++ show s
+    [] -> const $ Left "unexpected eof"
 
-lexAddress :: (Token -> P a) -> P a
-lexAddress cont cs _ _ =
+lexNumber :: (Token -> P a) -> P a
+lexNumber cont cs _ _ =
   case span isNumber cs of
     (num, rest) -> cont (TokenNumber $ read num) rest CommandMode rest
 
@@ -113,6 +174,19 @@ lexBackwardsRexexp :: Char -> (Token -> P a) -> P a
 lexBackwardsRexexp separator cont cs mode _ =
   case unescape separator cs of
     (text, rest) -> cont (TokenBackwardsRegexp text) rest mode rest
+
+lexTouple :: Char -> (Token -> P a) -> P a
+lexTouple separator cont cs mode _ =
+  case unescape separator cs of
+    (regexp, rest) ->
+      case unescape separator rest of
+        (text, rest2) ->
+          cont (TokenSubstitution (regexp, text)) rest2 mode rest2
+
+lexTextLine :: Char -> (Token -> P a) -> P a
+lexTextLine separator cont cs mode _ =
+  case unescape separator cs of
+    (text, rest) -> cont (TokenText text) rest mode rest
 
 -- | parse text until separator or '\n'
 -- substitutes "\n" by '\n' and "\sep" by 'sep'
@@ -134,11 +208,6 @@ escaped c (s:ss)
 
 first :: (a -> c) -> (a, b) -> (c, b)
 first f (a, b) = (f a, b)
-
-lexTextLine :: Char -> (Token -> P a) -> P a
-lexTextLine separator cont cs mode _ =
-  case unescape separator cs of
-    (text, rest) -> cont (TokenText text) rest mode rest
 
 readTextBlock :: String -> (String, String)
 readTextBlock cs =

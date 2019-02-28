@@ -294,6 +294,9 @@ main =
       it "parses pipe" $
         parseCommand "b   <list of files\nrest" `shouldBe`
         Right (SetBuffer ["<list", "of", "files"], "rest")
+      it "reports unexpected address" $
+        parseCommand ".b list of files\nrest" `shouldBe`
+        Left "command takes no address"
     describe "B" $ do
       it "parses single" $
         parseCommand "B file\nrest" `shouldBe`
@@ -304,8 +307,13 @@ main =
       it "parses pipe" $
         parseCommand "B   <list of files\nrest" `shouldBe`
         Right (AddBuffer ["<list", "of", "files"], "rest")
-    describe "n" $
+      it "reports unexpected address" $
+        parseCommand ".B list of files\nrest" `shouldBe`
+        Left "command takes no address"
+    describe "n" $ do
       it "parses" $ parseCommand "n\nrest" `shouldBe` Right (PrintMenu, "rest")
+      it "reports unexpected address" $
+        parseCommand ".n\nrest" `shouldBe` Left "command takes no address"
     describe "D" $ do
       it "parses single" $
         parseCommand "D file\nrest" `shouldBe`
@@ -313,9 +321,14 @@ main =
       it "parses list" $
         parseCommand "D list of files\nrest" `shouldBe`
         Right (DeleteFiles ["list", "of", "files"], "rest")
-    describe "e" $
+      it "reports unexpected address" $
+        parseCommand ".D list of files\nrest" `shouldBe`
+        Left "command takes no address"
+    describe "e" $ do
       it "parses single" $
-      parseCommand "e file\nrest" `shouldBe` Right (Edit "file", "rest")
+        parseCommand "e file\nrest" `shouldBe` Right (Edit "file", "rest")
+      it "reports unexpected address" $
+        parseCommand ".e file\nrest" `shouldBe` Left "command takes no address"
     describe "r" $ do
       it "parses with address" $
         parseCommand "1r file\nrest" `shouldBe`
@@ -333,9 +346,12 @@ main =
       it "parses without filename" $
         parseCommand "w\nrest" `shouldBe`
         Right (Write (RangeAddress ZeroAddress EndAddress) "", "rest")
-    describe "f" $
+    describe "f" $ do
       it "parses single" $
-      parseCommand "f file\nrest" `shouldBe` Right (SetFilename "file", "rest")
+        parseCommand "f file\nrest" `shouldBe`
+        Right (SetFilename "file", "rest")
+      it "reports unexpected address" $
+        parseCommand ".f file\nrest" `shouldBe` Left "command takes no address"
     describe "<" $ do
       it "parses without address" $
         parseCommand "< ls -l\nrest" `shouldBe`
@@ -357,12 +373,16 @@ main =
       it "parses with address" $
         parseCommand "123| ls -l\nrest" `shouldBe`
         Right (Pipe (LineAddress 123) "ls -l", "rest")
-    describe "!" $
+    describe "!" $ do
       it "parses" $
-      parseCommand "! ls -l\nrest" `shouldBe` Right (RunShell "ls -l", "rest")
-    describe "cd" $
+        parseCommand "! ls -l\nrest" `shouldBe` Right (RunShell "ls -l", "rest")
+      it "reports unexpected address" $
+        parseCommand ".! ls\nrest" `shouldBe` Left "command takes no address"
+    describe "cd" $ do
       it "parses" $
-      parseCommand "cd dir\nrest" `shouldBe` Right (ChangeDir "dir", "rest")
+        parseCommand "cd dir\nrest" `shouldBe` Right (ChangeDir "dir", "rest")
+      it "reports unexpected address" $
+        parseCommand ". cd dir\nrest" `shouldBe` Left "command takes no address"
     describe "x" $ do
       it "parses with address" $
         parseCommand "1x/regexp/ 4p\nrest" `shouldBe`
@@ -378,14 +398,18 @@ main =
       it "parses without address" $
         parseCommand "y/regexp/ p\nrest" `shouldBe`
         Right (LoopIfNot DotAddress "regexp" (Print DotAddress), "rest")
-    describe "X" $
+    describe "X" $ do
       it "parses" $
-      parseCommand "X/regexp/ 4p\nrest" `shouldBe`
-      Right (LoopIfFile "regexp" (Print (LineAddress 4)), "rest")
-    describe "Y" $
+        parseCommand "X/regexp/ 4p\nrest" `shouldBe`
+        Right (LoopIfFile "regexp" (Print (LineAddress 4)), "rest")
+      it "reports unexpected address" $
+        parseCommand ".X\nrest" `shouldBe` Left "command takes no address"
+    describe "Y" $ do
       it "parses" $
-      parseCommand "Y/regexp/ 4p\nrest" `shouldBe`
-      Right (LoopIfNotFile "regexp" (Print (LineAddress 4)), "rest")
+        parseCommand "Y/regexp/ 4p\nrest" `shouldBe`
+        Right (LoopIfNotFile "regexp" (Print (LineAddress 4)), "rest")
+      it "reports unexpected address" $
+        parseCommand ".Y\nrest" `shouldBe` Left "command takes no address"
     describe "g" $ do
       it "parses with address" $
         parseCommand "1g/regexp/ 4p\nrest" `shouldBe`
@@ -406,13 +430,17 @@ main =
         parseCommand "1k\nrest" `shouldBe` Right (Mark (LineAddress 1), "rest")
       it "parses without address" $
         parseCommand "k\nrest" `shouldBe` Right (Mark DotAddress, "rest")
-    describe "q" $
+    describe "q" $ do
       it "parses" $ parseCommand "q\nrest" `shouldBe` Right (Quit, "rest")
+      it "reports unexpected address" $
+        parseCommand ".q\nrest" `shouldBe` Left "command takes no address"
     describe "u" $ do
       it "parses with number" $
         parseCommand "u 12\nrest" `shouldBe` Right (Undo 12, "rest")
       it "parses without number" $
         parseCommand "u\nrest" `shouldBe` Right (Undo 1, "rest")
+      it "reports unexpected address" $
+        parseCommand ".u\nrest" `shouldBe` Left "command takes no address"
     describe "composition" $ do
       it "parses nested compositions with address" $
         parseCommand
@@ -467,3 +495,5 @@ main =
               , Insert (LineAddress 1) " Hallo Welt "
               ]
           , "rest")
+    it "report invalid command line" $
+      parseCommand "H" `shouldBe` Left "invalid command line: H"

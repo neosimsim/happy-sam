@@ -41,7 +41,9 @@ data LexingMode
   | SubstituteMode -- ^ lex @/regexp/string/@
   deriving (Show)
 
-type P a = String -> LexingMode -> String -> Int -> Either String (a, String)
+type P a
+   = String -> LexingMode -> String -> Int -- ^ depth of command composition
+                                        -> Either String (a, String)
 
 thenP :: P a -> (a -> P b) -> P b
 m `thenP` k =
@@ -54,6 +56,10 @@ returnP :: a -> P a
 returnP a _ _ r _ = Right (a, r)
 
 parseError :: Token -> P a
+parseError (TokenCmd c) _ _ _ _
+  | c `elem` ["b", "B", "n", "D", "e", "f", "!", "cd", "X", "Y", "q", "u"] =
+    Left "command takes no address"
+  | otherwise = Left $ "unexpected " ++ c
 parseError t s m r _ =
   Left $
   "Parse error: string: " ++
@@ -125,7 +131,7 @@ lexer cont s CommandMode r =
     input@(c:cs)
       | isSpace c -> lexer cont cs CommandMode cs
       | isNumber c -> lexNumber cont input CommandMode input
-      | otherwise -> const . Left $ "invalid command line:\n" ++ s
+      | otherwise -> const . Left $ "invalid command line: " ++ s
 lexer cont s TextMode _ =
   case s of
     (c:cs)

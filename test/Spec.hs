@@ -390,6 +390,15 @@ main =
       it "parses without address" $
         parseCommand "x/regexp/ p\nrest" `shouldBe`
         Right (LoopIf DotAddress "regexp" (Print DotAddress), "rest")
+      it "parses without command" $
+        parseCommand "x/regexp/\nrest" `shouldBe`
+        Right (LoopIf DotAddress "regexp" (Print DotAddress), "rest")
+      it "parses without regexp" $
+        parseCommand "x 3p\nrest" `shouldBe`
+        Right (LoopIf DotAddress ".*\\n" (Print (LineAddress 3)), "rest")
+      it "parses without any" $
+        parseCommand "x\nrest" `shouldBe`
+        Right (LoopIf DotAddress ".*\\n" (Print DotAddress), "rest")
     describe "y" $ do
       it "parses with address" $
         parseCommand "1y/regexp/ 4p\nrest" `shouldBe`
@@ -398,6 +407,15 @@ main =
       it "parses without address" $
         parseCommand "y/regexp/ p\nrest" `shouldBe`
         Right (LoopIfNot DotAddress "regexp" (Print DotAddress), "rest")
+      it "parses without command" $
+        parseCommand "y/regexp/\nrest" `shouldBe`
+        Right (LoopIfNot DotAddress "regexp" (Print DotAddress), "rest")
+      it "parses without regexp" $
+        parseCommand "y 3p\nrest" `shouldBe`
+        Right (LoopIfNot DotAddress ".*\\n" (Print (LineAddress 3)), "rest")
+      it "parses without any" $
+        parseCommand "y\nrest" `shouldBe`
+        Right (LoopIfNot DotAddress ".*\\n" (Print DotAddress), "rest")
     describe "X" $ do
       it "parses" $
         parseCommand "X/regexp/ 4p\nrest" `shouldBe`

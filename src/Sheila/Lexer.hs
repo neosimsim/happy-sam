@@ -36,6 +36,7 @@ data Token
 data LexingMode
   = CommandMode
   | TextMode
+  | FooMode
   | RegexMode -- ^ lex @/regexp/@, with @/@ is a non alpha numeric.
   | StringMode -- ^ lex everything till end of line
   | SubstituteMode -- ^ lex @/regexp/string/@
@@ -104,8 +105,8 @@ lexer cont s CommandMode r =
     ('m':cs) -> cont (TokenCmd "m") cs CommandMode cs
     ('t':cs) -> cont (TokenCmd "t") cs CommandMode cs
     -- Loop, Conditionals and Groups
-    ('x':cs) -> cont (TokenCmd "x") cs TextMode cs
-    ('y':cs) -> cont (TokenCmd "y") cs TextMode cs
+    ('x':cs) -> cont (TokenCmd "x") cs FooMode cs
+    ('y':cs) -> cont (TokenCmd "y") cs FooMode cs
     ('X':cs) -> cont (TokenCmd "X") cs TextMode cs
     ('Y':cs) -> cont (TokenCmd "Y") cs TextMode cs
     ('g':cs) -> cont (TokenCmd "g") cs TextMode cs
@@ -164,6 +165,14 @@ lexer cont s SubstituteMode _ =
       | isSpace c -> lexer cont cs SubstituteMode cs
       | not (isAlphaNum c) -> lexTouple c cont cs CommandMode cs
       | otherwise -> const . Left $ "invalid substitution " ++ show s
+    [] -> const $ Left "unexpected eof"
+lexer cont s FooMode _ =
+  case s of
+    (c:cs)
+      | c == '\n' -> cont (TokenText ".*\\n") s CommandMode s
+      | isSpace c -> lexer cont cs FooMode cs
+      | isAlphaNum c -> cont (TokenText ".*\\n") s CommandMode s
+      | otherwise -> lexTextLine c cont cs CommandMode cs
     [] -> const $ Left "unexpected eof"
 
 lexNumber :: (Token -> P a) -> P a

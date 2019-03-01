@@ -75,8 +75,10 @@ import           Sheila.Lexer
 %nonassoc '#' '"' '$' number regexp backwardsRegexp
 %%
 
-Cmd   : { Print (PlusAddress DotAddress (LineAddress 1)) }
-      | address                        { Print $1 }
+Line : {- empty -} { Print (PlusAddress DotAddress (LineAddress 1)) }
+     | Cmd         { $1 }
+
+Cmd   : address                        { Print $1 }
       | optionalAddress 'a' text               { Add $1 $3 }
       | optionalAddress 'i' text               { Insert $1 $3 }
       | optionalAddress 'c' text               { Change $1 $3 }
@@ -90,7 +92,9 @@ Cmd   : { Print (PlusAddress DotAddress (LineAddress 1)) }
       | optionalAddress 'g' text Cmd           { RunIf $1 $3 $4 }
       | optionalAddress 'v' text Cmd           { RunIfNot $1 $3 $4 }
       | optionalAddress 'x' text Cmd           { LoopIf $1 $3 $4 }
+      | optionalAddress 'x' text               { LoopIf $1 $3 (Print DotAddress) }
       | optionalAddress 'y' text Cmd           { LoopIfNot $1 $3 $4 }
+      | optionalAddress 'y' text               { LoopIfNot $1 $3 (Print DotAddress) }
       | optionalAddress '{' '\n' Cmds '\n' '}' { Composed $1 (reverse $4) }
       | 'e' restOfLine                 { Edit $2 }
       | optionalAddress 'r' restOfLine         { Replace $1 $3 }
@@ -117,8 +121,8 @@ restOfLine: text { $1 }
 
 word: text { $1 }
 
-Cmds : Cmds '\n' Cmd { $3 : $1 }
-     | Cmd           { [$1] }
+Cmds : Cmds '\n' Line { $3 : $1 }
+     | Line           { [$1] }
 
 optionalAddress: {- empty -} { DotAddress }
                | address     { $1 }

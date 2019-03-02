@@ -37,6 +37,7 @@ data LexingMode
   = CommandMode
   | TextMode
   | FooMode
+  | Foo2Mode
   | RegexMode -- ^ lex @/regexp/@, with @/@ is a non alpha numeric.
   | StringMode -- ^ lex everything till end of line
   | SubstituteMode -- ^ lex @/regexp/string/@
@@ -107,8 +108,8 @@ lexer cont s CommandMode r =
     -- Loop, Conditionals and Groups
     ('x':cs) -> cont (TokenCmd "x") cs FooMode cs
     ('y':cs) -> cont (TokenCmd "y") cs FooMode cs
-    ('X':cs) -> cont (TokenCmd "X") cs TextMode cs
-    ('Y':cs) -> cont (TokenCmd "Y") cs TextMode cs
+    ('X':cs) -> cont (TokenCmd "X") cs Foo2Mode cs
+    ('Y':cs) -> cont (TokenCmd "Y") cs Foo2Mode cs
     ('g':cs) -> cont (TokenCmd "g") cs TextMode cs
     ('v':cs) -> cont (TokenCmd "v") cs TextMode cs
     ('{':cs) ->
@@ -172,6 +173,14 @@ lexer cont s FooMode _ =
       | c == '\n' -> cont (TokenText ".*\\n") s CommandMode s
       | isSpace c -> lexer cont cs FooMode cs
       | isAlphaNum c -> cont (TokenText ".*\\n") s CommandMode s
+      | otherwise -> lexTextLine c cont cs CommandMode cs
+    [] -> const $ Left "unexpected eof"
+lexer cont s Foo2Mode _ =
+  case s of
+    (c:cs)
+      | c == '\n' -> cont (TokenText "") s CommandMode s
+      | isSpace c -> lexer cont cs Foo2Mode cs
+      | isAlphaNum c -> cont (TokenText "") s CommandMode s
       | otherwise -> lexTextLine c cont cs CommandMode cs
     [] -> const $ Left "unexpected eof"
 

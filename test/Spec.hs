@@ -420,12 +420,30 @@ main =
       it "parses" $
         parseCommand "X/regexp/ 4p\nrest" `shouldBe`
         Right (LoopIfFile "regexp" (Print (LineAddress 4)), "rest")
+      it "parses without regexp" $
+        parseCommand "X 4p\nrest" `shouldBe`
+        Right (LoopIfFile "" (Print (LineAddress 4)), "rest")
+      it "parses without command" $
+        parseCommand "X/regexp/\nrest" `shouldBe`
+        Right (LoopIfFile "regexp" (SetFilename ""), "rest")
+      it "parses without any" $
+        parseCommand "X\nrest" `shouldBe`
+        Right (LoopIfFile "" (SetFilename ""), "rest")
       it "reports unexpected address" $
         parseCommand ".X\nrest" `shouldBe` Left "command takes no address"
     describe "Y" $ do
       it "parses" $
         parseCommand "Y/regexp/ 4p\nrest" `shouldBe`
         Right (LoopIfNotFile "regexp" (Print (LineAddress 4)), "rest")
+      it "parses without regexp" $
+        parseCommand "Y 4p\nrest" `shouldBe`
+        Right (LoopIfNotFile "" (Print (LineAddress 4)), "rest")
+      it "parses without command" $
+        parseCommand "Y/regexp/\nrest" `shouldBe`
+        Right (LoopIfNotFile "regexp" (SetFilename ""), "rest")
+      it "parses without any" $
+        parseCommand "Y\nrest" `shouldBe`
+        Right (LoopIfNotFile "" (SetFilename ""), "rest")
       it "reports unexpected address" $
         parseCommand ".Y\nrest" `shouldBe` Left "command takes no address"
     describe "g" $ do

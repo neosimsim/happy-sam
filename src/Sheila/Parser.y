@@ -107,7 +107,9 @@ Cmd   : address                        { Print $1 }
       |  '!' restOfLine                { RunShell $2 }
       |  "cd" restOfLine               { ChangeDir $2 }
       | 'X' text Cmd                   { LoopIfFile $2 $3 }
+      | 'X' text                       { LoopIfFile $2 (SetFilename "") }
       | 'Y' text Cmd                   { LoopIfNotFile $2 $3 }
+      | 'Y' text                       { LoopIfNotFile $2 (SetFilename "") }
       | 'q'                            { Quit }
       | 'b' restOfLine                 { SetBuffer (words $2) } -- TODO should use @words@ here
       | 'B' restOfLine                 { AddBuffer (words $2) }

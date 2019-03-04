@@ -163,6 +163,13 @@ relRangeAddr r1 r2 = RangeAddress r1 (PlusAddress r1 r2)
 
 -- | Parses the next command from the beginning of the string.
 -- Returs a touple of the parsed command and the unparsed rest of the string.
-parseCommand :: String -> Either String (Cmd, String)
-parseCommand s = parse s CommandMode s 0
+parseCommand' :: String -> (Either String Cmd, String)
+parseCommand' s = parse s CommandMode s 0
+
+parseCommand :: String -> [Either String Cmd]
+parseCommand [] = []
+parseCommand s =
+  case parseCommand' s of
+    (Left e, rest)    -> Left e : parseCommand rest
+    (Right cmd, rest) -> Right cmd : parseCommand rest
 }

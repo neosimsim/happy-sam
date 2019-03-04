@@ -45,28 +45,24 @@ data LexingMode
 
 type P a
    = String -> LexingMode -> String -> Int -- ^ depth of command composition
-                                        -> Either String (a, String)
+                                        -> (Either String a, String)
 
 thenP :: P a -> (a -> P b) -> P b
 m `thenP` k =
   \s mode rest level ->
     case m s mode rest level of
-      Right (x, r') -> k x s mode r' level
-      Left err      -> Left err
+      (Right x, r') -> k x s mode r' level
+      (Left err, r) -> (Left err, r)
 
 returnP :: a -> P a
-returnP a _ _ r _ = Right (a, r)
+returnP a _ _ r _ = (Right a, r)
 
 parseError :: Token -> P a
-parseError (TokenCmd c) _ _ _ _
+parseError (TokenCmd c) _ _ r _
   | c `elem` ["b", "B", "n", "D", "e", "f", "!", "cd", "X", "Y", "q", "u"] =
-    Left "command takes no address"
-  | otherwise = Left $ "unexpected " ++ c
-parseError t s m r _ =
-  Left $
-  "Parse error: string: " ++
-  show s ++
-  ", token: " ++ show t ++ ", mode: " ++ show m ++ ", rest: " ++ show r
+    (Left "command takes no address", r)
+  | otherwise = (Left $ "unexpected " ++ c, r)
+parseError _ _ _ r _ = (Left "Parse error", r)
 
 lexer :: (Token -> P a) -> P a
 lexer cont s CommandMode r =
@@ -133,7 +129,7 @@ lexer cont s CommandMode r =
     input@(c:cs)
       | isSpace c -> lexer cont cs CommandMode cs
       | isNumber c -> lexNumber cont input CommandMode input
-      | otherwise -> const . Left $ "invalid command line: " ++ s
+      | otherwise -> const (Left $ "invalid command line: " ++ s, s)
 lexer cont s TextMode _ =
   case s of
     (c:cs)
@@ -142,15 +138,15 @@ lexer cont s TextMode _ =
           (text, rest) -> cont (TokenText text) rest CommandMode rest
       | isSpace c -> lexer cont cs TextMode cs
       | not (isAlphaNum c) -> lexTextLine c cont cs CommandMode cs
-      | otherwise -> const . Left $ "invalid text " ++ show s
-    [] -> const $ Left "unexpected eof"
+      | otherwise -> const (Left $ "invalid text " ++ show s, s)
+    [] -> const (Left "unexpected eof", "")
 lexer cont s RegexMode _ =
   case s of
     (c:cs)
       | isSpace c -> lexer cont cs RegexMode cs
       | not (isAlphaNum c) -> lexTextLine c cont cs CommandMode cs
-      | otherwise -> const . Left $ "invalid text " ++ show s
-    [] -> const $ Left "unexpected eof"
+      | otherwise -> const (Left $ "invalid text " ++ show s, s)
+    [] -> const (Left "unexpected eof", "")
 lexer cont s StringMode _ =
   case s of
     (c:cs)
@@ -159,14 +155,14 @@ lexer cont s StringMode _ =
       | otherwise ->
         case span (/= '\n') s of
           (line, rest) -> cont (TokenText line) rest CommandMode rest
-    [] -> const $ Left "unexpected eof"
+    [] -> const (Left "unexpected eof", "")
 lexer cont s SubstituteMode _ =
   case s of
     (c:cs)
       | isSpace c -> lexer cont cs SubstituteMode cs
       | not (isAlphaNum c) -> lexTouple c cont cs CommandMode cs
-      | otherwise -> const . Left $ "invalid substitution " ++ show s
-    [] -> const $ Left "unexpected eof"
+      | otherwise -> const (Left $ "invalid substitution " ++ show s, s)
+    [] -> const (Left "unexpected eof", "")
 lexer cont s FooMode _ =
   case s of
     (c:cs)
@@ -174,7 +170,7 @@ lexer cont s FooMode _ =
       | isSpace c -> lexer cont cs FooMode cs
       | isAlphaNum c -> cont (TokenText ".*\\n") s CommandMode s
       | otherwise -> lexTextLine c cont cs CommandMode cs
-    [] -> const $ Left "unexpected eof"
+    [] -> const (Left "unexpected eof", "")
 lexer cont s Foo2Mode _ =
   case s of
     (c:cs)
@@ -182,7 +178,7 @@ lexer cont s Foo2Mode _ =
       | isSpace c -> lexer cont cs Foo2Mode cs
       | isAlphaNum c -> cont (TokenText "") s CommandMode s
       | otherwise -> lexTextLine c cont cs CommandMode cs
-    [] -> const $ Left "unexpected eof"
+    [] -> const (Left "unexpected eof", "")
 
 lexNumber :: (Token -> P a) -> P a
 lexNumber cont cs _ _ =

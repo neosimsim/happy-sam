@@ -514,4 +514,10 @@ main =
              , Insert (LineAddress 1) " Hallo Welt "
              ])
     it "report invalid command line" $
-      (head . parseCommand) "H" `shouldBe` Left "invalid command line: H"
+      (head . parseCommand) "H\n" `shouldBe` Left "invalid command line: H"
+    it "parses sequences" $
+      (take 3 . parseCommand) ".p\nH\n0i/text\n/q\n" `shouldBe`
+      [ Right (Print DotAddress)
+      , Left "invalid command line: H"
+      , Right (Insert ZeroAddress "text")
+      ]

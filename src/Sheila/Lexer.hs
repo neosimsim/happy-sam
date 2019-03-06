@@ -129,7 +129,8 @@ lexer cont s CommandMode r =
     input@(c:cs)
       | isSpace c -> lexer cont cs CommandMode cs
       | isNumber c -> lexNumber cont input CommandMode input
-      | otherwise -> const (Left $ "invalid command line: " ++ s, s)
+      | otherwise ->
+        const (Left $ "invalid command line: " ++ head (lines s), skipLine s)
 lexer cont s TextMode _ =
   case s of
     (c:cs)
@@ -236,3 +237,9 @@ readTextBlock cs =
     (line, rest) ->
       case readTextBlock (tail rest) of
         (text, r) -> (line ++ '\n' : text, r) -- TODO use string appender from LYAH to improve performance
+
+skipLine :: String -> String
+skipLine s =
+  case span (/= '\n') s of
+    (_, [])     -> []
+    (_, _:rest) -> rest
